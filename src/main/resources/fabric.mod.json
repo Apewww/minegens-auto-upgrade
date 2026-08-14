@@ -17,6 +17,9 @@
     ],
     "client": [
       "com.minegens.autoupgrade.client.MineGensAutoUpgradeClient"
+    ],
+    "modmenu": [
+      "com.minegens.autoupgrade.client.ModMenuIntegration"
     ]
   },
   "mixins": [

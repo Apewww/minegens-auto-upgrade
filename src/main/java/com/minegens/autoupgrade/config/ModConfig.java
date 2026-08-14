@@ -30,6 +30,10 @@ public class ModConfig {
     public boolean sendNotification = true;
     public int autoLoopIntervalSeconds = 5;
     public boolean autoLoopEnabled = false;
+    public int targetLevel = 50; // Target generator level to stop upgrading
+    public boolean stopAtTargetLevel = true; // Auto stop when target level is reached
+    public int checkGeneratorSlot = 1; // Slot ID where generator is located (default 1)
+    public int clickDelayTicks = 2; // Delay in ticks before clicking upgrade slot
 
     public static ModConfig getInstance() {
         return INSTANCE;
