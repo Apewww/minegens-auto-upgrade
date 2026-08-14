@@ -42,38 +42,49 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
                 boolean isZPressed = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_Z) == GLFW.GLFW_PRESS;
                 boolean isOPressed = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_O) == GLFW.GLFW_PRESS;
 
-                // U Key - Start Auto Upgrade Loop
-                if (isUPressed && !wasUPressed) {
-                    config.enabled = true; // Automatically enable mod
-                    config.autoLoopEnabled = true;
+                // Z Key - Master Mod Toggle (Enable / Disable entire mod)
+                if (isZPressed && !wasZPressed) {
+                    config.enabled = !config.enabled;
+                    if (!config.enabled) {
+                        config.autoLoopEnabled = false;
+                        tickCounter = 0;
+                    }
                     ModConfig.save();
-                    tickCounter = 0;
 
                     client.player.sendMessage(
-                            Text.literal("§a[MineGens] §fAuto Upgrade: §a§lSTARTED §7(Target: §e" + config.targetLevel + "§7, Delay: §e" + config.autoLoopIntervalSeconds + "s§7 - Press [Z] to stop)"),
+                            Text.literal("§a[MineGens] §fMaster Mod Status: " + (config.enabled ? "§a§lENABLED §7(Press [U] to start upgrade)" : "§c§lDISABLED §7(All features OFF - Press [Z] to enable)")),
                             false
                     );
-                    AutoUpgradeHandler.triggerAutoUpgrade();
                 }
-                wasUPressed = isUPressed;
+                wasZPressed = isZPressed;
 
-                // Z Key - Stop / Disable Auto Upgrade Loop
-                if (isZPressed && !wasZPressed) {
-                    if (config.autoLoopEnabled) {
-                        config.autoLoopEnabled = false;
-                        ModConfig.save();
+                // U Key - Toggle Auto Upgrade Loop (Only functions when Mod is ENABLED)
+                if (isUPressed && !wasUPressed) {
+                    if (!config.enabled) {
                         client.player.sendMessage(
-                                Text.literal("§a[MineGens] §fAuto Upgrade: §c§lSTOPPED §7(Press [U] to start)"),
+                                Text.literal("§c[MineGens] Mod is DISABLED! Press [Z] to enable first."),
                                 false
                         );
                     } else {
-                        client.player.sendMessage(
-                                Text.literal("§e[MineGens] §fAuto Upgrade is already §cSTOPPED §7(Press [U] to start)"),
-                                false
-                        );
+                        config.autoLoopEnabled = !config.autoLoopEnabled;
+                        ModConfig.save();
+                        tickCounter = 0;
+
+                        if (config.autoLoopEnabled) {
+                            client.player.sendMessage(
+                                    Text.literal("§a[MineGens] §fAuto Upgrade: §a§lSTARTED §7(Target: §e" + config.targetLevel + "§7, Delay: §e" + config.autoLoopIntervalSeconds + "s§7 - Press [U] to stop)"),
+                                    false
+                            );
+                            AutoUpgradeHandler.triggerAutoUpgrade();
+                        } else {
+                            client.player.sendMessage(
+                                    Text.literal("§a[MineGens] §fAuto Upgrade: §c§lSTOPPED"),
+                                    false
+                            );
+                        }
                     }
                 }
-                wasZPressed = isZPressed;
+                wasUPressed = isUPressed;
 
                 // O Key - Open Config GUI Settings Screen
                 if (isOPressed && !wasOPressed) {
@@ -139,17 +150,38 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
                                             })
                                     )
                             )
+                            .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("enable")
+                                    .executes(context -> {
+                                        ModConfig config = ModConfig.getInstance();
+                                        config.enabled = true;
+                                        ModConfig.save();
+                                        context.getSource().sendFeedback(Text.literal("§a[MineGens] §fMaster Mod Status: §a§lENABLED §7(Press [U] to start)"));
+                                        return 1;
+                                    })
+                            )
+                            .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("disable")
+                                    .executes(context -> {
+                                        ModConfig config = ModConfig.getInstance();
+                                        config.enabled = false;
+                                        config.autoLoopEnabled = false;
+                                        ModConfig.save();
+                                        context.getSource().sendFeedback(Text.literal("§a[MineGens] §fMaster Mod Status: §c§lDISABLED §7(All features OFF)"));
+                                        return 1;
+                                    })
+                            )
                             .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("toggle")
                                     .executes(context -> {
                                         ModConfig config = ModConfig.getInstance();
+                                        if (!config.enabled) {
+                                            context.getSource().sendFeedback(Text.literal("§c[MineGens] Mod is DISABLED! Use '/minegens enable' or press [Z] to enable."));
+                                            return 0;
+                                        }
                                         config.autoLoopEnabled = !config.autoLoopEnabled;
+                                        ModConfig.save();
                                         if (config.autoLoopEnabled) {
-                                            config.enabled = true;
-                                            ModConfig.save();
                                             context.getSource().sendFeedback(Text.literal("§a[MineGens] §fAuto Upgrade: §a§lSTARTED §7(Target: §e" + config.targetLevel + "§7, Delay: §e" + config.autoLoopIntervalSeconds + "s§7)"));
                                             AutoUpgradeHandler.triggerAutoUpgrade();
                                         } else {
-                                            ModConfig.save();
                                             context.getSource().sendFeedback(Text.literal("§a[MineGens] §fAuto Upgrade: §c§lSTOPPED"));
                                         }
                                         return 1;

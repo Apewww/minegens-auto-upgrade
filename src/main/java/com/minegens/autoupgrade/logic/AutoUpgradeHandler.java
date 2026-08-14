@@ -90,12 +90,18 @@ public class AutoUpgradeHandler {
     }
 
     public static void onClientTick() {
+        ModConfig config = ModConfig.getInstance();
+        if (!config.enabled) {
+            clickDelayTicks = 0;
+            currentHandler = null;
+            return;
+        }
+
         if (clickDelayTicks > 0) {
             clickDelayTicks--;
             if (clickDelayTicks == 0 && currentHandler != null) {
                 MinecraftClient client = MinecraftClient.getInstance();
                 if (client != null && client.player != null && client.interactionManager != null) {
-                    ModConfig config = ModConfig.getInstance();
                     int syncId = currentHandler.syncId;
 
                     // 1. Check current generator level
