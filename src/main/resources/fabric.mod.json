@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "minegensautoupgrade",
+  "version": "${version}",
+  "name": "MineGens Auto Upgrade",
+  "description": "Auto /upgradegen client mod with hidden GUI panel and slot 41 clicker for MineGens.",
+  "authors": [
+    "MineGens Modder"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/minegensautoupgrade/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "com.minegens.autoupgrade.MineGensAutoUpgrade"
+    ],
+    "client": [
+      "com.minegens.autoupgrade.client.MineGensAutoUpgradeClient"
+    ]
+  },
+  "mixins": [
+    "minegensautoupgrade.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "minecraft": "*"
+  }
+}
