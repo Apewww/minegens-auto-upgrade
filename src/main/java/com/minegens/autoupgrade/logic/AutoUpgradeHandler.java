@@ -110,13 +110,13 @@ public class AutoUpgradeHandler {
                     if (currentLevel > 0) {
                         LOGGER.info("[MineGens Auto Upgrade] Detected Generator Level: {} (Target: {})", currentLevel, config.targetLevel);
 
-                        // If target level is reached and auto-stop is enabled
+                        // If target level is reached
                         if (config.stopAtTargetLevel && currentLevel >= config.targetLevel) {
                             config.autoLoopEnabled = false;
                             ModConfig.save();
 
                             client.player.sendMessage(
-                                    Text.literal("§a[MineGens] §6§lTARGET REACHED! §fGenerator Level §e" + currentLevel + " §fhas reached target §e" + config.targetLevel + "§6. Auto Upgrade stopped."),
+                                    Text.literal("§a[MineGens] §6§lTARGET REACHED! §fGenerator Level §e" + currentLevel + " §fhas reached target §e" + config.targetLevel + "§6."),
                                     false
                             );
 
@@ -124,6 +124,16 @@ public class AutoUpgradeHandler {
                                 client.player.closeHandledScreen();
                             }
                             currentHandler = null;
+
+                            // If auto-rebuild is enabled, begin breaking 2x2 & replacing with new generators
+                            if (config.autoRebuild) {
+                                AutoRebuildHandler.startRebuild();
+                            } else {
+                                client.player.sendMessage(
+                                        Text.literal("§a[MineGens] §7Auto Upgrade stopped."),
+                                        false
+                                );
+                            }
                             return;
                         }
                     }

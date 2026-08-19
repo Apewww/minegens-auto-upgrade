@@ -26,6 +26,8 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
 
             // Handle delayed slot clicks & container actions
             AutoUpgradeHandler.onClientTick();
+            // Handle auto rebuild (breaking & placing)
+            com.minegens.autoupgrade.logic.AutoRebuildHandler.onClientTick();
 
             long window = 0;
             try {
@@ -48,6 +50,7 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
                     if (!config.enabled) {
                         config.autoLoopEnabled = false;
                         tickCounter = 0;
+                        com.minegens.autoupgrade.logic.AutoRebuildHandler.cancelRebuild("Mod disabled.");
                     }
                     ModConfig.save();
 
@@ -65,12 +68,18 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
                                 Text.literal("§c[MineGens] Mod is DISABLED! Press [Z] to enable first."),
                                 false
                         );
+                    } else if (com.minegens.autoupgrade.logic.AutoRebuildHandler.isRebuilding()) {
+                        // If rebuild is running, pressing U stops the rebuild
+                        com.minegens.autoupgrade.logic.AutoRebuildHandler.cancelRebuild("Stopped by [U] hotkey.");
                     } else {
                         config.autoLoopEnabled = !config.autoLoopEnabled;
                         ModConfig.save();
                         tickCounter = 0;
 
                         if (config.autoLoopEnabled) {
+                            // Attempt to cache 2x2 column position
+                            com.minegens.autoupgrade.logic.AutoRebuildHandler.detect2x2Area();
+
                             client.player.sendMessage(
                                     Text.literal("§a[MineGens] §fAuto Upgrade: §a§lSTARTED §7(Target: §e" + config.targetLevel + "§7, Delay: §e" + config.autoLoopIntervalSeconds + "s§7 - Press [U] to stop)"),
                                     false
@@ -126,6 +135,51 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
                                         return 1;
                                     })
                             )
+                            .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("rebuild")
+                                    .executes(context -> {
+                                        com.minegens.autoupgrade.logic.AutoRebuildHandler.startRebuild();
+                                        return 1;
+                                    })
+                                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("start")
+                                            .executes(context -> {
+                                                com.minegens.autoupgrade.logic.AutoRebuildHandler.startRebuild();
+                                                return 1;
+                                            })
+                                    )
+                                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("cancel")
+                                            .executes(context -> {
+                                                com.minegens.autoupgrade.logic.AutoRebuildHandler.cancelRebuild("Stopped by command.");
+                                                return 1;
+                                            })
+                                    )
+                                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("stop")
+                                            .executes(context -> {
+                                                com.minegens.autoupgrade.logic.AutoRebuildHandler.cancelRebuild("Stopped by command.");
+                                                return 1;
+                                            })
+                                    )
+                                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("toggle")
+                                            .executes(context -> {
+                                                ModConfig config = ModConfig.getInstance();
+                                                config.autoRebuild = !config.autoRebuild;
+                                                ModConfig.save();
+                                                context.getSource().sendFeedback(Text.literal("§a[MineGens] §fAuto Rebuild on Target: " + (config.autoRebuild ? "§a§lENABLED" : "§c§lDISABLED")));
+                                                return 1;
+                                            })
+                                    )
+                                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("item")
+                                            .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("name", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                                    .executes(context -> {
+                                                        String item = com.mojang.brigadier.arguments.StringArgumentType.getString(context, "name");
+                                                        ModConfig config = ModConfig.getInstance();
+                                                        config.rebuildItemFilter = item;
+                                                        ModConfig.save();
+                                                        context.getSource().sendFeedback(Text.literal("§a[MineGens] §fRebuild generator item set to: §e\"" + item + "\""));
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                            )
                             .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("delay")
                                     .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("seconds", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 60))
                                             .executes(context -> {
@@ -164,6 +218,7 @@ public class MineGensAutoUpgradeClient implements ClientModInitializer {
                                         ModConfig config = ModConfig.getInstance();
                                         config.enabled = false;
                                         config.autoLoopEnabled = false;
+                                        com.minegens.autoupgrade.logic.AutoRebuildHandler.cancelRebuild("Mod disabled.");
                                         ModConfig.save();
                                         context.getSource().sendFeedback(Text.literal("§a[MineGens] §fMaster Mod Status: §c§lDISABLED §7(All features OFF)"));
                                         return 1;

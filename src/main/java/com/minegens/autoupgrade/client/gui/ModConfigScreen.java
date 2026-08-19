@@ -15,6 +15,7 @@ public class ModConfigScreen extends Screen {
     private final ModConfig config;
 
     private TextFieldWidget commandField;
+    private TextFieldWidget rebuildItemField;
 
     public ModConfigScreen(Screen parent) {
         super(Text.literal("MineGens Auto Upgrade Settings"));
@@ -27,8 +28,8 @@ public class ModConfigScreen extends Screen {
         super.init();
 
         int centerX = this.width / 2;
-        int startY = 36;
-        int rowHeight = 24;
+        int startY = 22;
+        int rowHeight = 22;
         int buttonWidth = 150;
         int fullWidth = 310;
 
@@ -122,7 +123,7 @@ public class ModConfigScreen extends Screen {
                         (button, value) -> config.autoCloseScreen = value
                 ));
 
-        // Row 4: Send Notifications & Generator Check Slot ID
+        // Row 4: Chat Alerts & Auto Rebuild on Target
         this.addDrawableChild(CyclingButtonWidget.onOffBuilder(config.sendNotification)
                 .build(
                         centerX - buttonWidth - 5,
@@ -133,33 +134,138 @@ public class ModConfigScreen extends Screen {
                         (button, value) -> config.sendNotification = value
                 ));
 
+        this.addDrawableChild(CyclingButtonWidget.onOffBuilder(config.autoRebuild)
+                .build(
+                        centerX + 5,
+                        startY + rowHeight * 3,
+                        buttonWidth,
+                        20,
+                        Text.literal("Auto Rebuild 2x2"),
+                        (button, value) -> config.autoRebuild = value
+                ));
+
+        // Row 5: Rebuild Height (1-16 layers -> 4-64 blocks) & Auto Restart After Rebuild
         this.addDrawableChild(new SliderWidget(
-                centerX + 5,
-                startY + rowHeight * 3,
+                centerX - buttonWidth - 5,
+                startY + rowHeight * 4,
                 buttonWidth,
                 20,
-                Text.literal("Check Slot: " + config.checkGeneratorSlot),
-                (double) (Math.max(0, Math.min(53, config.checkGeneratorSlot))) / 53.0
+                Text.literal("Height: " + config.rebuildHeight + " (" + (config.rebuildHeight * 4) + " blocks)"),
+                (double) (Math.max(1, Math.min(16, config.rebuildHeight)) - 1) / 15.0
         ) {
             @Override
             protected void updateMessage() {
-                this.setMessage(Text.literal("Check Slot: " + config.checkGeneratorSlot));
+                this.setMessage(Text.literal("Height: " + config.rebuildHeight + " (" + (config.rebuildHeight * 4) + " blocks)"));
             }
 
             @Override
             protected void applyValue() {
-                config.checkGeneratorSlot = (int) Math.round(this.value * 53.0);
+                config.rebuildHeight = 1 + (int) Math.round(this.value * 15.0);
             }
         });
 
-        // Row 5: Command text field
-        int fieldY = startY + rowHeight * 4 + 10;
+        this.addDrawableChild(CyclingButtonWidget.onOffBuilder(config.autoRestartAfterRebuild)
+                .build(
+                        centerX + 5,
+                        startY + rowHeight * 4,
+                        buttonWidth,
+                        20,
+                        Text.literal("Resume Upgrade"),
+                        (button, value) -> config.autoRestartAfterRebuild = value
+                ));
+
+        // Row 6: Break Delay & Place Delay
+        this.addDrawableChild(new SliderWidget(
+                centerX - buttonWidth - 5,
+                startY + rowHeight * 5,
+                buttonWidth,
+                20,
+                Text.literal("Break Delay: " + config.breakDelayTicks + " ticks"),
+                (double) (Math.max(1, Math.min(10, config.breakDelayTicks)) - 1) / 9.0
+        ) {
+            @Override
+            protected void updateMessage() {
+                this.setMessage(Text.literal("Break Delay: " + config.breakDelayTicks + " ticks (" + (config.breakDelayTicks * 50) + "ms)"));
+            }
+
+            @Override
+            protected void applyValue() {
+                config.breakDelayTicks = 1 + (int) Math.round(this.value * 9.0);
+            }
+        });
+
+        this.addDrawableChild(new SliderWidget(
+                centerX + 5,
+                startY + rowHeight * 5,
+                buttonWidth,
+                20,
+                Text.literal("Place Delay: " + config.placeDelayTicks + " ticks"),
+                (double) (Math.max(1, Math.min(10, config.placeDelayTicks)) - 1) / 9.0
+        ) {
+            @Override
+            protected void updateMessage() {
+                this.setMessage(Text.literal("Place Delay: " + config.placeDelayTicks + " ticks (" + (config.placeDelayTicks * 50) + "ms)"));
+            }
+
+            @Override
+            protected void applyValue() {
+                config.placeDelayTicks = 1 + (int) Math.round(this.value * 9.0);
+            }
+        });
+
+        // Row 7: Baritone-style Smooth Aim & Aim Speed
+        this.addDrawableChild(CyclingButtonWidget.onOffBuilder(config.smoothCameraAim)
+                .build(
+                        centerX - buttonWidth - 5,
+                        startY + rowHeight * 6,
+                        buttonWidth,
+                        20,
+                        Text.literal("Smooth Camera Aim"),
+                        (button, value) -> config.smoothCameraAim = value
+                ));
+
+        this.addDrawableChild(new SliderWidget(
+                centerX + 5,
+                startY + rowHeight * 6,
+                buttonWidth,
+                20,
+                Text.literal("Aim Speed: " + (int) config.cameraAimSpeed + "°/t"),
+                (double) (Math.max(10.0f, Math.min(90.0f, config.cameraAimSpeed)) - 10.0f) / 80.0f
+        ) {
+            @Override
+            protected void updateMessage() {
+                this.setMessage(Text.literal("Aim Speed: " + (int) config.cameraAimSpeed + "°/t"));
+            }
+
+            @Override
+            protected void applyValue() {
+                config.cameraAimSpeed = 10.0f + (float) Math.round(this.value * 80.0f);
+            }
+        });
+
+        // Row 8: Rebuild Item Name Text Field
+        int rebuildItemY = startY + rowHeight * 7 + 8;
+        this.rebuildItemField = new TextFieldWidget(
+                this.textRenderer,
+                centerX - fullWidth / 2,
+                rebuildItemY,
+                fullWidth,
+                16,
+                Text.literal("Rebuild Item Filter")
+        );
+        this.rebuildItemField.setMaxLength(64);
+        this.rebuildItemField.setText(config.rebuildItemFilter != null ? config.rebuildItemFilter : "Wheat Generator");
+        this.rebuildItemField.setChangedListener(text -> config.rebuildItemFilter = text);
+        this.addDrawableChild(this.rebuildItemField);
+
+        // Row 9: Upgrade Command Text Field
+        int cmdY = rebuildItemY + 24;
         this.commandField = new TextFieldWidget(
                 this.textRenderer,
                 centerX - fullWidth / 2,
-                fieldY,
+                cmdY,
                 fullWidth,
-                20,
+                16,
                 Text.literal("Command")
         );
         this.commandField.setMaxLength(64);
@@ -168,7 +274,7 @@ public class ModConfigScreen extends Screen {
         this.addDrawableChild(this.commandField);
 
         // Bottom Row: Done Button (Save) and Reset Defaults
-        int bottomY = this.height - 32;
+        int bottomY = this.height - 24;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Reset Defaults"), button -> {
             config.autoLoopIntervalSeconds = 5;
@@ -181,6 +287,14 @@ public class ModConfigScreen extends Screen {
             config.checkGeneratorSlot = 1;
             config.command = "/upgradegen";
             config.targetSlotId = 51;
+            config.autoRebuild = true;
+            config.rebuildItemFilter = "Wheat Generator";
+            config.rebuildHeight = 8;
+            config.breakDelayTicks = 2;
+            config.placeDelayTicks = 2;
+            config.autoRestartAfterRebuild = true;
+            config.smoothCameraAim = true;
+            config.cameraAimSpeed = 45.0f;
             ModConfig.save();
             if (this.client != null) {
                 this.client.setScreen(new ModConfigScreen(this.parent));
@@ -188,14 +302,21 @@ public class ModConfigScreen extends Screen {
         }).dimensions(centerX - buttonWidth - 5, bottomY, buttonWidth, 20).build());
 
         this.addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, button -> {
-            if (this.commandField != null) {
-                config.command = this.commandField.getText().trim();
-            }
+            saveFields();
             ModConfig.save();
             if (this.client != null) {
                 this.client.setScreen(this.parent);
             }
         }).dimensions(centerX + 5, bottomY, buttonWidth, 20).build());
+    }
+
+    private void saveFields() {
+        if (this.commandField != null) {
+            config.command = this.commandField.getText().trim();
+        }
+        if (this.rebuildItemField != null) {
+            config.rebuildItemFilter = this.rebuildItemField.getText().trim();
+        }
     }
 
     @Override
@@ -213,27 +334,37 @@ public class ModConfigScreen extends Screen {
                 this.textRenderer,
                 this.title,
                 this.width / 2,
-                14,
+                8,
                 0xFFFFFF
         );
 
         int centerX = this.width / 2;
         int fullWidth = 310;
-        int labelY = 36 + 24 * 4 - 2;
+        int startY = 22;
+        int rowHeight = 22;
+
+        int rebuildLabelY = startY + rowHeight * 7 - 1;
+        context.drawTextWithShadow(
+                this.textRenderer,
+                Text.literal("Generator Item to Place (Inventory Search):"),
+                centerX - fullWidth / 2,
+                rebuildLabelY,
+                0xAAAAAA
+        );
+
+        int cmdLabelY = rebuildLabelY + 24;
         context.drawTextWithShadow(
                 this.textRenderer,
                 Text.literal("Upgrade Command:"),
                 centerX - fullWidth / 2,
-                labelY,
+                cmdLabelY,
                 0xAAAAAA
         );
     }
 
     @Override
     public void close() {
-        if (this.commandField != null) {
-            config.command = this.commandField.getText().trim();
-        }
+        saveFields();
         ModConfig.save();
         if (this.client != null) {
             this.client.setScreen(this.parent);

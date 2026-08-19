@@ -35,6 +35,16 @@ public class ModConfig {
     public int checkGeneratorSlot = 1; // Slot ID where generator is located (default 1)
     public int clickDelayTicks = 2; // Delay in ticks before clicking upgrade slot
 
+    // Auto Rebuild (Break 2x2 & Place Generators) Configuration
+    public boolean autoRebuild = true; // Auto break 2x2 and replace with new generators when target is reached
+    public String rebuildItemFilter = "Wheat Generator"; // Keyword/Name of generator item in inventory
+    public int rebuildHeight = 8; // Height in layers (8 layers * 4 = 32 blocks)
+    public int breakDelayTicks = 2; // Ticks delay between breaking blocks
+    public int placeDelayTicks = 2; // Ticks delay between placing blocks
+    public boolean autoRestartAfterRebuild = true; // Automatically restart auto-upgrade loop after rebuild
+    public boolean smoothCameraAim = true; // Smoothly aim camera at target blocks like Baritone
+    public float cameraAimSpeed = 45.0f; // Camera rotation speed (degrees per tick)
+
     public static ModConfig getInstance() {
         return INSTANCE;
     }
