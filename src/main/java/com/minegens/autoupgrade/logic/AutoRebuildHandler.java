@@ -57,6 +57,8 @@ public class AutoRebuildHandler {
     private static int brokenCount = 0;
     private static int placedCount = 0;
     private static int breakAttemptsForCurrentBlock = 0;
+    private static int placeAttemptsForCurrentBlock = 0;
+    private static int verificationPasses = 0;
 
     // Cache of the last detected 2x2 area
     private static int cachedMinX = 0, cachedMaxX = 0;
@@ -261,6 +263,8 @@ public class AutoRebuildHandler {
         brokenCount = 0;
         placedCount = 0;
         breakAttemptsForCurrentBlock = 0;
+        placeAttemptsForCurrentBlock = 0;
+        verificationPasses = 0;
         delayTicks = 2;
         state = RebuildState.BREAKING;
 
@@ -349,10 +353,37 @@ public class AutoRebuildHandler {
         // 3. PLACING PHASE
         if (state == RebuildState.PLACING) {
             if (placeQueue.isEmpty()) {
+                // Verification pass: sweep all 32 blocks from bottomY up to topY
+                int height = Math.max(1, config.rebuildHeight);
+                int topY = cachedTopY;
+                int bottomY = topY - height + 1;
+
+                java.util.List<PlaceAction> missingBlocks = new java.util.ArrayList<>();
+                for (int y = bottomY; y <= topY; y++) {
+                    BlockPos p1 = new BlockPos(cachedMinX, y, cachedMinZ);
+                    BlockPos p2 = new BlockPos(cachedMaxX, y, cachedMinZ);
+                    BlockPos p3 = new BlockPos(cachedMinX, y, cachedMaxZ);
+                    BlockPos p4 = new BlockPos(cachedMaxX, y, cachedMaxZ);
+
+                    if (client.world.isAir(p1)) missingBlocks.add(new PlaceAction(p1, p1.down(), Direction.UP));
+                    if (client.world.isAir(p2)) missingBlocks.add(new PlaceAction(p2, p2.down(), Direction.UP));
+                    if (client.world.isAir(p3)) missingBlocks.add(new PlaceAction(p3, p3.down(), Direction.UP));
+                    if (client.world.isAir(p4)) missingBlocks.add(new PlaceAction(p4, p4.down(), Direction.UP));
+                }
+
+                if (!missingBlocks.isEmpty() && verificationPasses < 5) {
+                    verificationPasses++;
+                    LOGGER.info("[MineGens Auto Rebuild] Found {} missing blocks during verification pass {}. Re-placing missing blocks...", missingBlocks.size(), verificationPasses);
+                    placeQueue.addAll(missingBlocks);
+                    delayTicks = 3;
+                    return;
+                }
+
                 state = RebuildState.IDLE;
 
+                int finalPlaced = totalToPlace - missingBlocks.size();
                 client.player.sendMessage(
-                        Text.literal("§a[MineGens] §a§lREBUILD COMPLETE! §fSuccessfully placed §e" + placedCount + " §fgenerators."),
+                        Text.literal("§a[MineGens] §a§lREBUILD COMPLETE! §fSuccessfully placed §e" + finalPlaced + "/" + totalToPlace + " §fgenerators."),
                         false
                 );
 
@@ -376,7 +407,7 @@ public class AutoRebuildHandler {
             double targetPlayerY = action.targetPos.getY() + 1.25;
             movePlayerTowards(client.player, centerX, targetPlayerY, centerZ);
 
-            // If player is still below the placement layer, wait / elevate before placing
+            // If player is still below the placement layer, elevate before placing
             if (client.player.getY() < action.targetPos.getY() + 0.6) {
                 client.player.setPosition(centerX, targetPlayerY, centerZ);
                 client.player.setVelocity(0, 0.2, 0);
@@ -386,6 +417,7 @@ public class AutoRebuildHandler {
             if (!client.world.isAir(action.targetPos)) {
                 placeQueue.poll();
                 placedCount++;
+                placeAttemptsForCurrentBlock = 0;
                 delayTicks = Math.max(1, config.placeDelayTicks);
                 return;
             }
@@ -404,7 +436,12 @@ public class AutoRebuildHandler {
                         action.clickedPos.getY() + 0.95,
                         action.clickedPos.getZ() + 0.5
                 );
-                aimAt(client.player, aimTarget, config.cameraAimSpeed);
+                boolean aimed = aimAt(client.player, aimTarget, config.cameraAimSpeed);
+                if (!aimed) {
+                    // Wait 1 tick for the camera to finish pointing directly at the block before clicking
+                    delayTicks = 1;
+                    return;
+                }
             }
 
             // Place block on top face of clickedPos
@@ -418,8 +455,13 @@ public class AutoRebuildHandler {
             client.interactionManager.interactBlock(client.player, Hand.MAIN_HAND, hitResult);
             client.player.swingHand(Hand.MAIN_HAND);
 
-            placeQueue.poll();
-            placedCount++;
+            placeAttemptsForCurrentBlock++;
+            // If after 3 attempts the block hasn't synced, advance and let verification sweep catch it
+            if (placeAttemptsForCurrentBlock >= 3) {
+                placeQueue.poll();
+                placeAttemptsForCurrentBlock = 0;
+            }
+
             delayTicks = Math.max(1, config.placeDelayTicks);
         }
     }
